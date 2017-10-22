@@ -6,6 +6,7 @@ target/
 .project
 .settings
 .idea/
+.DS_Store
 
-!project/assembly.sbt
+!project/*.sbt
 !project/build.properties
