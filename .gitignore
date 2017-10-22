@@ -6,3 +6,6 @@ target/
 .project
 .settings
 .idea/
+
+!project/assembly.sbt
+!project/build.properties
