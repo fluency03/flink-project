@@ -1,5 +1,3 @@
-package org.example
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -18,53 +16,68 @@ package org.example
  * limitations under the License.
  */
 
+package org.example
+
+import org.apache.flink.api.java.utils.ParameterTool
 import org.apache.flink.streaming.api.scala._
+import org.apache.flink.streaming.api.windowing.time.Time
 
 /**
- * This example shows an implementation of WordCount with data from a text socket. 
- * To run the example make sure that the service providing the text data is already up and running.
+ * Implements a streaming windowed version of the "WordCount" program.
  *
- * To start an example socket text stream on your local machine run netcat from a command line, 
- * where the parameter specifies the port number:
- *
+ * This program connects to a server socket and reads strings from the socket.
+ * The easiest way to try this out is to open a text sever (at port 12345)
+ * using the ''netcat'' tool via
  * {{{
- *   nc -lk 9999
+ * nc -l 12345
  * }}}
- *
- * Usage:
- * {{{
- *   SocketTextStreamWordCount <hostname> <port> <output path>
- * }}}
- *
- * This example shows how to:
- *
- *   - use StreamExecutionEnvironment.socketTextStream
- *   - write a simple Flink Streaming program in scala.
- *   - write and use user-defined functions.
+ * and run this example with the hostname and the port as arguments..
  */
 object SocketTextStreamWordCount {
 
-  def main(args: Array[String]) {
-    if (args.length != 2) {
-      System.err.println("USAGE:\nSocketTextStreamWordCount <hostname> <port>")
-      return
+  /** Main program method */
+  def main(args: Array[String]) : Unit = {
+
+    // the host and the port to connect to
+    var hostname: String = "localhost"
+    var port: Int = 0
+
+    try {
+      val params = ParameterTool.fromArgs(args)
+      hostname = if (params.has("hostname")) params.get("hostname") else "localhost"
+      port = params.getInt("port")
+    } catch {
+      case e: Exception => {
+        System.err.println("No port specified. Please run 'SocketWindowWordCount " +
+          "--hostname <hostname> --port <port>', where hostname (localhost by default) and port " +
+          "is the address of the text server")
+        System.err.println("To start a simple text server, run 'netcat -l <port>' " +
+          "and type the input text into the command line")
+        return
+      }
     }
 
-    val hostName = args(0)
-    val port = args(1).toInt
+    // get the execution environment
+    val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
 
-    val env = StreamExecutionEnvironment.getExecutionEnvironment
+    // get input data by connecting to the socket
+    val text: DataStream[String] = env.socketTextStream(hostname, port, '\n')
 
-    //Create streams for names and ages by mapping the inputs to the corresponding objects
-    val text = env.socketTextStream(hostName, port)
-    val counts = text.flatMap { _.toLowerCase.split("\\W+") filter { _.nonEmpty } }
-      .map { (_, 1) }
-      .keyBy(0)
-      .sum(1)
+    // parse the data, group it, window it, and aggregate the counts
+    val windowCounts = text
+      .flatMap { w => w.split("\\s") }
+      .map { w => WordWithCount(w, 1) }
+      .keyBy("word")
+      .timeWindow(Time.seconds(5))
+      .sum("count")
 
-    counts print
+    // print the results with a single thread, rather than in parallel
+    windowCounts.print().setParallelism(1)
 
-    env.execute("Scala SocketTextStreamWordCount Example")
+//    println(env.getExecutionPlan)
+    env.execute("Socket Window WordCount")
   }
 
+  /** Data type for words with count */
+  case class WordWithCount(word: String, count: Long)
 }
