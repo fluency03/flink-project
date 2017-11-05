@@ -23,6 +23,9 @@ lazy val root = (project in file(".")).
   )
 
 mainClass in assembly := Some("org.example.Job")
+//mainClass in assembly := Some("org.example.WordCount")
+//mainClass in assembly := Some("org.example.SocketTextStreamWordCount")
+//mainClass in assembly := Some("org.example.WikipediaEditMonitoring")
 
 // make run command include the provided dependencies
 run in Compile := Defaults.runTask(fullClasspath in Compile,

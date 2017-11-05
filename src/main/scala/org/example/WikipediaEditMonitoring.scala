@@ -15,17 +15,28 @@ object WikipediaEditMonitoring {
 
     val edits: DataStream[WikipediaEditEvent] = env.addSource(new WikipediaEditsSource)
 
-    val result = edits.keyBy( _.getUser )
+    // fold is deprecated, use [[aggregate()]] instead
+//    val result = edits
+//      .keyBy( _.getUser )
+//      .timeWindow(Time.seconds(5))
+//      .fold(("", 0L)) {
+//        (acc: (String, Long), event: WikipediaEditEvent) => {
+//          (event.getUser, acc._2 + event.getByteDiff)
+//        }
+//      }
+
+    val result = edits
+      .map( e => UserWithEdits(e.getUser, e.getByteDiff) )
+      .keyBy( "user" )
       .timeWindow(Time.seconds(5))
-      .fold(("", 0L)) {
-        (acc: (String, Long), event: WikipediaEditEvent) => {
-          (event.getUser, acc._2 + event.getByteDiff)
-        }
-      }
+      .sum("edits")
 
     result.print
 
     // execute program
     env.execute("Wikipedia Edit Monitoring")
   }
+
+  /** Data type for words with count */
+  case class UserWithEdits(user: String, edits: Long)
 }
