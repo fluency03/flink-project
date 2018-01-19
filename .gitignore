@@ -10,3 +10,4 @@ target/
 
 !project/*.sbt
 !project/build.properties
+input
